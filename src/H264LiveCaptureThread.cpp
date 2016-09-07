@@ -21,7 +21,13 @@ void* doProc(void* arg)
 {
     sp<ProcessState> proc(ProcessState::self());
     proc->startThreadPool();
-    IPCThreadState::self()->joinThreadPool();
+    //IPCThreadState::self()->joinThreadPool();
+
+    while(running)
+    {
+        sleep(1);
+    }
+
     pthread_exit((void*)"mService thread exited !\n");
 }
 
@@ -29,12 +35,8 @@ void* doProc(void* arg)
 H264LiveCaptureThread::H264LiveCaptureThread()
 {
     rkH264Encoder = NULL;
-}
-
-H264LiveCaptureThread::~H264LiveCaptureThread()
-{
-    printf("obj deleted! \n");
-    Destroy();
+    mService = NULL;
+    info.outputBuffer = NULL;
 }
 
 bool H264LiveCaptureThread::Create(int width, int height, int fps)
@@ -93,10 +95,17 @@ bool H264LiveCaptureThread::Create(int width, int height, int fps)
     return true;
 }
 
+H264LiveCaptureThread::~H264LiveCaptureThread()
+{
+    printf("obj deleted! \n");
+    Destroy();
+}
 
 void H264LiveCaptureThread::Destroy()
 {
     printf("starting to detroy capture !\n");
+
+    running = false;
 
     if(drawWorkQ.size() > 0)
     {
@@ -112,14 +121,13 @@ void H264LiveCaptureThread::Destroy()
     }
 
 
-    //    if (mService)
-    //    {
-    //		mService->disconnect();
-    //		mService->removeClient();
-    //		//delete(mService);
-    //		mService = NULL;
-    //    }
-    //
+    if (mService != NULL)
+    {
+        mService->disconnect();
+        mService->removeClient();
+        mService = NULL;
+    }
+
     //	printf("mService destroied !\n");
     //
     //	if(info.outputBuffer)
@@ -132,7 +140,7 @@ void H264LiveCaptureThread::Destroy()
 
 }
 
-void H264LiveCaptureThread::Capture(void* obuf, int len, int* frameLen, int* truncatedLen)
+void H264LiveCaptureThread::exportData(void* obuf, int len, int* frameLen, int* truncatedLen)
 {
     int unexportLen = 0;
 
@@ -149,7 +157,7 @@ void H264LiveCaptureThread::Capture(void* obuf, int len, int* frameLen, int* tru
     drawlock.lock();
     if(drawWorkQ.isEmpty())
     {
-        printf("######### no remotebuffer ready to draw...\n");
+        printf("no remotebuffer ready to draw...\n");
         //drawQueue.wait(drawlock);
         drawlock.unlock();
         return;
@@ -158,14 +166,9 @@ void H264LiveCaptureThread::Capture(void* obuf, int len, int* frameLen, int* tru
     drawWorkQ.removeAt(0);
     drawlock.unlock();
 
-    printf("draw preview Buffer: share_fd %d, index %d, w: %d h: %d , size: %d \n",
-           pbuf->share_fd, pbuf->index, pbuf->width, pbuf->height, pbuf->size);
-
     unsigned char *vaddr = (unsigned char *)mmap(NULL, pbuf->size, PROT_READ | PROT_WRITE, MAP_SHARED, pbuf->share_fd, 0);
-    //TODO:reconfig encoder and buffer when previewBuffer changed
 
-    printf("mmap preview buffer suc ! \n");
-
+    //reconfig encoder and buffer when previewBuffer changed
     if(pbuf->width != preWidth || pbuf->height != preHeight)
     {
         preWidth = pbuf->width;
@@ -179,21 +182,22 @@ void H264LiveCaptureThread::Capture(void* obuf, int len, int* frameLen, int* tru
         info.outputBuffer = malloc(preWidth * preHeight * 3 / 2);
     }
 
-    encodeProc(vaddr);
+    if(encodeProc(vaddr) < 0)
+    {
+        goto cleanUp;
+        return;
+    }
 
     if(info.mSize > len)
     {
         unexportLen =  info.mSize - len;
     }
 
-    printf("encode output size: %d \n",info.mSize);
-
     memcpy(obuf, info.outputBuffer, info.mSize - unexportLen);
     *truncatedLen = unexportLen;
     *frameLen = info.mSize - unexportLen;
 
-    printf("export data suc! \n");
-
+cleanUp:
     munmap(vaddr, pbuf->size);
     mService->releasePreviewFrame((unsigned char *)pbuf, sizeof(RemotePreviewBuffer));
     close(pbuf->share_fd);
@@ -220,12 +224,10 @@ int H264LiveCaptureThread::encoderInit()
 
     rkH264Encoder->requestIDRFrame();
 
-    printf("Init encoder suc ! \n");
-
     return 0;
 }
 
-void H264LiveCaptureThread::encodeProc(unsigned char *vddr)
+int H264LiveCaptureThread::encodeProc(unsigned char *vddr)
 {
     if(!rkH264Encoder)
     {
@@ -233,33 +235,24 @@ void H264LiveCaptureThread::encodeProc(unsigned char *vddr)
         if(ret != 0)
         {
             printf("no avalvable encoder \n");
-            return;
+            return -1;
         }
     }
 
     //Input_Resource picture;
     memset(&picture, 0, sizeof(Input_Resource));
-    printf("set input resource suc 1!\n");
-    picture.mSize = preWidth * preHeight * 3 /2;//width * height * 3 / 2;
-    printf("set input resource suc 2!\n");
+    picture.mSize = preWidth * preHeight * 3 /2;
     picture.inputBuffer = vddr;
     picture.mTimeUs = systemTime() / 1000;
 
-    printf("set input resource suc 3!\n");
-
     //Output_Resource info;
-    //   memset(&info, 0, sizeof(Output_Resource));
-    printf("set input resource suc 3!\n");
+    //memset(&info, 0, sizeof(Output_Resource));
     memset(info.outputBuffer, 0, preWidth * preHeight * 3 / 2);
 
-    printf("Encoder frame  start \n");
     // Encode!
-    int enc_ret = rkH264Encoder->EncodeFrame(&picture, &info);
+    int ret = rkH264Encoder->EncodeFrame(&picture, &info);
 
-    printf("Encoder frame  end \n");
-
-    //free(info.outputBuffer);
-
+    return ret;
 }
 
 

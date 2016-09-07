@@ -69,7 +69,7 @@ void H264LiveFramedSource::getNextFrame1()
 {
     int frameSize, truncatedSize;
 
-    mThread->Capture(fTo, maxFrameSize(), &frameSize, &truncatedSize);
+    mThread->exportData(fTo, maxFrameSize(), &frameSize, &truncatedSize);
     fFrameSize = frameSize;
     fNumTruncatedBytes = truncatedSize;
     // notify

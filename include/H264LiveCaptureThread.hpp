@@ -31,7 +31,8 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 using namespace rockchip;
 
 #define H264_MAX_FRAME_SIZE (100 * 1024)
-static  Vector<RemotePreviewBuffer *> drawWorkQ;
+static Vector<RemotePreviewBuffer *> drawWorkQ;
+static bool running = true;
 
 class H264LiveCaptureThread : public RemoteBufferWrapper::RemotePreviewCallback
 {
@@ -45,7 +46,7 @@ public:
 
     void Destroy();
 
-    void Capture(void* buf, int len, int* frameLen, int* truncatedLen);
+    void exportData(void* buf, int len, int* frameLen, int* truncatedLen);
 
     virtual void onCall(unsigned char *pbuf, int size)
     {
@@ -89,8 +90,8 @@ private:
     pthread_t procTh;
 
     RkDrivingEncoder *rkH264Encoder;
-    int  encoderInit();
-    void encodeProc(unsigned char* vddr);
+    int encoderInit();
+    int encodeProc(unsigned char* vddr);
 };
 
 #endif
