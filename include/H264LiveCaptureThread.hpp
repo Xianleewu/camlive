@@ -71,6 +71,20 @@ public:
         drawQueue.broadcast();
         drawlock.unlock();
 
+        drawlock.lock();
+        if(drawWorkQ.size() > 2)
+        {
+
+            RemotePreviewBuffer *pbuf2;
+            pbuf2 = drawWorkQ.itemAt(2);
+            drawWorkQ.removeAt(2);
+
+            mService->releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
+            close(pbuf2->share_fd);
+            delete pbuf2;
+        }
+        drawlock.unlock();
+
     }
 
 private:
