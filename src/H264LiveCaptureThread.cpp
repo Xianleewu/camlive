@@ -16,13 +16,6 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 #include "H264LiveCaptureThread.hpp"
 
-#include "fcntl.h"
-#include "string.h"
-#include <sys/time.h>
-
-using namespace std;
-
-static RkDrivingEncoder *rkh264_encoder_ = NULL;
 
 void* doProc(void* arg)
 {
@@ -34,7 +27,8 @@ void* doProc(void* arg)
 
 
 H264LiveCaptureThread::H264LiveCaptureThread()
-{	
+{
+    rkH264Encoder = NULL;
 }
 
 H264LiveCaptureThread::~H264LiveCaptureThread()
@@ -72,7 +66,7 @@ bool H264LiveCaptureThread::Create(int width, int height, int fps)
         return false;
     }
 
-    if(!rkh264_encoder_)
+    if(!rkH264Encoder)
     {
         encoderInit();
     }
@@ -215,16 +209,16 @@ int H264LiveCaptureThread::encoderInit()
     pa->mVideoFrameRate = 25;
     pa->mVideoBitRate = 2*1024*1024;
     pa->mVideoColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
-    rkh264_encoder_ = new RkDrivingEncoder(pa);
+    rkH264Encoder = new RkDrivingEncoder(pa);
 
-    int ret = rkh264_encoder_->prepareEncode();
+    int ret = rkH264Encoder->prepareEncode();
     if(ret != 0)
     {
         printf("prepare Encode failed \n");
         return -1;
     }
 
-    rkh264_encoder_->requestIDRFrame();
+    rkH264Encoder->requestIDRFrame();
 
     printf("Init encoder suc ! \n");
 
@@ -233,7 +227,7 @@ int H264LiveCaptureThread::encoderInit()
 
 void H264LiveCaptureThread::encodeProc(unsigned char *vddr)
 {
-    if(!rkh264_encoder_)
+    if(!rkH264Encoder)
     {
         int ret = encoderInit();
         if(ret != 0)
@@ -260,7 +254,7 @@ void H264LiveCaptureThread::encodeProc(unsigned char *vddr)
 
     printf("Encoder frame  start \n");
     // Encode!
-    int enc_ret = rkh264_encoder_->EncodeFrame(&picture, &info);
+    int enc_ret = rkH264Encoder->EncodeFrame(&picture, &info);
 
     printf("Encoder frame  end \n");
 

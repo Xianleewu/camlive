@@ -88,6 +88,7 @@ private:
     Output_Resource info;
     pthread_t procTh;
 
+    RkDrivingEncoder *rkH264Encoder;
     int  encoderInit();
     void encodeProc(unsigned char* vddr);
 };
