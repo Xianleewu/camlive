@@ -31,6 +31,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 using namespace rockchip;
 
 #define H264_MAX_FRAME_SIZE (100 * 1024)
+static  Vector<RemotePreviewBuffer *> drawWorkQ;
 
 class H264LiveCaptureThread : public RemoteBufferWrapper::RemotePreviewCallback
 {
@@ -38,57 +39,57 @@ public:
     H264LiveCaptureThread();
     ~H264LiveCaptureThread();
 
-	RemoteBufferWrapper *mService;
+    RemoteBufferWrapper *mService;
 
     bool Create(int width, int height, int fps);
 
     void Destroy();
 
     void Capture(void* buf, int len, int* frameLen, int* truncatedLen);
-	
-	virtual void onCall(unsigned char *pbuf, int size)
-	{
-		printf("onCall \n");
-	}
+
+    virtual void onCall(unsigned char *pbuf, int size)
+    {
+        printf("onCall \n");
+    }
 
     virtual void onPreviewData(int shared_fd, unsigned char *pbuf, int size)
-	{
-		printf("got previewFrame \n");
-	
-	    RemotePreviewBuffer *pbuf1 = new RemotePreviewBuffer;
-	    RemotePreviewBuffer *data = (RemotePreviewBuffer *)pbuf;
-	
-	    pbuf1->share_fd = dup(shared_fd);
-	    pbuf1->index = data->index;
-	    pbuf1->width = data->width;
-	    pbuf1->height = data->height;
-	    pbuf1->stride = data->stride;
-	    pbuf1->size = data->size;
-	    drawlock.lock();
-	    drawWorkQ.push_back(pbuf1);
-	    drawQueue.broadcast();
-	    drawlock.unlock();
+    {
+        printf("got previewFrame \n");
 
-	}
+        RemotePreviewBuffer *pbuf1 = new RemotePreviewBuffer;
+        RemotePreviewBuffer *data = (RemotePreviewBuffer *)pbuf;
+
+        pbuf1->share_fd = dup(shared_fd);
+        pbuf1->index = data->index;
+        pbuf1->width = data->width;
+        pbuf1->height = data->height;
+        pbuf1->stride = data->stride;
+        pbuf1->size = data->size;
+        drawlock.lock();
+        drawWorkQ.push_back(pbuf1);
+        drawQueue.broadcast();
+        drawlock.unlock();
+
+    }
 
 private:
-	int preWidth;
-	int preHeight;
-	
-	int size;
-	RemotePreviewBuffer *pbuf;
-	unsigned char *buf;	
+    int preWidth;
+    int preHeight;
 
-	Mutex drawlock;
-	Condition drawQueue;
-	Vector<RemotePreviewBuffer *> drawWorkQ;
+    int size;
+    RemotePreviewBuffer *pbuf;
+    unsigned char *buf;
+
+    Mutex drawlock;
+    Condition drawQueue;
+
     char mFrameBuf[H264_MAX_FRAME_SIZE];
-	Input_Resource picture;
-	Output_Resource info;
-	pthread_t procTh;
-	
-	int  encoderInit();
-	void encodeProc(unsigned char* vddr);
+    Input_Resource picture;
+    Output_Resource info;
+    pthread_t procTh;
+
+    int  encoderInit();
+    void encodeProc(unsigned char* vddr);
 };
 
 #endif

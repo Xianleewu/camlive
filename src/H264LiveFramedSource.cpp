@@ -20,7 +20,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 using namespace std;
 
 H264LiveFramedSource* H264LiveFramedSource::createNew(UsageEnvironment& env, 
-    const char* device, int width, int height, int fps)
+                                                      const char* device, int width, int height, int fps)
 {
     H264LiveCaptureThread* thread = new H264LiveCaptureThread();
     if (NULL == thread)
@@ -41,7 +41,7 @@ H264LiveFramedSource* H264LiveFramedSource::createNew(UsageEnvironment& env,
 }
 
 H264LiveFramedSource::H264LiveFramedSource(UsageEnvironment& env, 
-    H264LiveCaptureThread* thread)
+                                           H264LiveCaptureThread* thread)
     : FramedSource(env), mThread(thread)
 {
 
@@ -49,7 +49,7 @@ H264LiveFramedSource::H264LiveFramedSource(UsageEnvironment& env,
 
 H264LiveFramedSource::~H264LiveFramedSource()
 {
-	printf("H264LiveFramedSource deleted !\n");
+    printf("H264LiveFramedSource deleted !\n");
     mThread->Destroy();
     envir().taskScheduler().unscheduleDelayedTask(mToken);
 }
@@ -57,12 +57,12 @@ H264LiveFramedSource::~H264LiveFramedSource()
 void H264LiveFramedSource::doGetNextFrame()
 { 
     mToken = envir().taskScheduler().scheduleDelayedTask(0,
-        getNextFrame, this);
+                                                         getNextFrame, this);
 }
 
 void H264LiveFramedSource::getNextFrame(void* ptr)
 {  
-    ((H264LiveFramedSource*)ptr)->getNextFrame1();  
+    ((H264LiveFramedSource*)ptr)->getNextFrame1();
 }
 
 void H264LiveFramedSource::getNextFrame1()
@@ -72,8 +72,8 @@ void H264LiveFramedSource::getNextFrame1()
     mThread->Capture(fTo, maxFrameSize(), &frameSize, &truncatedSize);
     fFrameSize = frameSize;
     fNumTruncatedBytes = truncatedSize;
-    // notify  
-    afterGetting(this); 
+    // notify
+    afterGetting(this);
 }
 
 unsigned int H264LiveFramedSource::maxFrameSize() const

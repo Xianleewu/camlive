@@ -22,8 +22,8 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 class H264LiveFramedSource : public FramedSource
 {
 public:
-    static H264LiveFramedSource* createNew(UsageEnvironment& env, 
-        const char* device, int width, int height, int fps);
+    static H264LiveFramedSource* createNew(UsageEnvironment& env,
+                                           const char* device, int width, int height, int fps);
 
     static void getNextFrame(void* ptr);
     void getNextFrame1();
@@ -33,7 +33,7 @@ protected:
     ~H264LiveFramedSource();
 
     virtual void doGetNextFrame();
-    virtual unsigned int maxFrameSize() const; 
+    virtual unsigned int maxFrameSize() const;
 
 private:
     void* mToken;
