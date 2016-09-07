@@ -21,7 +21,6 @@ void* doProc(void* arg)
 {
     sp<ProcessState> proc(ProcessState::self());
     proc->startThreadPool();
-    //IPCThreadState::self()->joinThreadPool();
 
     while(running)
     {
@@ -107,7 +106,7 @@ void H264LiveCaptureThread::Destroy()
 
     running = false;
 
-    if(drawWorkQ.size() > 0)
+    while(drawWorkQ.size() > 0)
     {
         drawlock.lock();
         RemotePreviewBuffer *pbuf2;
