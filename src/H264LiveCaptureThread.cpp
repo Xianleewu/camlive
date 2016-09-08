@@ -90,19 +90,20 @@ void* H264LiveCaptureThread::doRelease(void* arg)
     H264LiveCaptureThread* nThread = (H264LiveCaptureThread*)arg;
     while(nThread->running)
     {
-        nThread->drawlock.lock();
-        if(nThread->drawWorkQ.size() > 2)
-        {
 
+        if(nThread->drawWorkQ.size() > 1)
+        {
+            nThread->drawlock.lock();
             RemotePreviewBuffer *pbuf2;
             pbuf2 = nThread->drawWorkQ.itemAt(0);
             nThread->drawWorkQ.removeAt(0);
+            nThread->drawlock.unlock();
 
             nThread->mService.releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
             close(pbuf2->share_fd);
             delete pbuf2;
         }
-        nThread->drawlock.unlock();
+
 
     }
 
@@ -166,16 +167,16 @@ void H264LiveCaptureThread::exportData(void* obuf, int len, int* frameLen, int* 
 #endif
 
     RemotePreviewBuffer *pbuf;
-    drawlock.lock();
+    //drawlock.lock();
     if(drawWorkQ.isEmpty())
     {
         printf("no remotebuffer ready to draw...\n");
-        drawlock.unlock();
+        //drawlock.unlock();
         return;
     }
     pbuf = drawWorkQ.itemAt(0);
     drawWorkQ.removeAt(0);
-    drawlock.unlock();
+    //drawlock.unlock();
 
     unsigned char *vaddr = (unsigned char *)mmap(NULL, pbuf->size, PROT_READ | PROT_WRITE, MAP_SHARED, pbuf->share_fd, 0);
 

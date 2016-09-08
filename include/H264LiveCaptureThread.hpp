@@ -35,6 +35,12 @@ using namespace rockchip;
 //#define GRABBER_TIME
 #define EXPORT_TIME
 
+typedef struct _preViewBuffer
+{
+    char *vAddr;
+    unsigned int vSize;
+}preViewBuffer;
+
 class H264LiveCaptureThread : public RemoteBufferWrapper::RemotePreviewCallback
 {
 public:
@@ -72,9 +78,18 @@ public:
         nRePreBuf->height = data->height;
         nRePreBuf->stride = data->stride;
         nRePreBuf->size = data->size;
-        drawlock.lock();
-        drawWorkQ.push_back(nRePreBuf);
-        drawlock.unlock();
+
+        if(drawWorkQ.isEmpty())
+        {
+            drawlock.lock();
+            drawWorkQ.push_back(nRePreBuf);
+            drawlock.unlock();
+        }
+        else
+        {
+            drawWorkQ.push_back(nRePreBuf);
+        }
+
 #ifdef GRABBER_TIME
         gettimeofday(&eTime,NULL);
         time_use=(eTime.tv_sec-sTime.tv_sec)*1000000+(eTime.tv_usec-sTime.tv_usec);
