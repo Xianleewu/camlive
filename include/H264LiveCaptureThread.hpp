@@ -49,6 +49,7 @@ public:
 
     virtual void onCall(unsigned char *pbuf, int size)
     {
+
     }
 
     virtual void onPreviewData(int shared_fd, unsigned char *pbuf, int size)

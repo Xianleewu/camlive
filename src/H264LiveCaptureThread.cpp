@@ -49,7 +49,7 @@ bool H264LiveCaptureThread::Create(unsigned char camid, int bitrate)
 
     if(!outPicture.outputBuffer)
     {
-        outPicture.outputBuffer = malloc(preWidth * preHeight * 4 / 2);
+        outPicture.outputBuffer = malloc(preWidth * preHeight * 3 / 2);
     }
 
     mService.connect();
@@ -228,7 +228,7 @@ int H264LiveCaptureThread::encoderInit()
     pa->mVideoWidth = preWidth;
     pa->mVideoHeight = preHeight;
     pa->mVideoFrameRate = 15;
-    pa->mVideoBitRate = 4*1024*1024;
+    pa->mVideoBitRate = preBitRate;
     pa->mVideoColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
     rkH264Encoder = new RkDrivingEncoder(pa);
 
