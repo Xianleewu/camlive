@@ -19,23 +19,17 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 H264LiveCaptureThread::H264LiveCaptureThread()
 {
+    running = true;
+    preWidth = 640;
+    preHeight = 360;
+
     rkH264Encoder = NULL;
-    mService = NULL;
     outPicture.outputBuffer = NULL;
 }
 
 bool H264LiveCaptureThread::Create(int width, int height, int fps)
 {
     printf("starting to creat capture thread !\n");
-
-    preWidth = 640;
-    preHeight = 360;
-
-    if(mService != NULL)
-    {
-        printf("mService created in another time! \n");
-        return false;
-    }
 
     size = 32;
     pbuf = new RemotePreviewBuffer;
@@ -44,14 +38,6 @@ bool H264LiveCaptureThread::Create(int width, int height, int fps)
     pbuf->index = 0x55;
     pbuf->size = sizeof(RemotePreviewBuffer);
     pbuf->share_fd = 0xaa;
-
-    mService = new RemoteBufferWrapper();
-
-    if(mService == NULL)
-    {
-        printf("Error when creat a service \n");
-        return false;
-    }
 
     if(!rkH264Encoder)
     {
@@ -62,10 +48,11 @@ bool H264LiveCaptureThread::Create(int width, int height, int fps)
     {
         outPicture.outputBuffer = malloc(preWidth * preHeight * 4 / 2);
     }
-    mService->connect();
-    mService->setPreviewCallback(this);
-    mService->call(buf, size);
-    mService->startPreview(0);
+
+    mService.connect();
+    mService.setPreviewCallback(this);
+    mService.call(buf, size);
+    mService.startPreview(0);
 
     int ret = pthread_create(&procTh,NULL,H264LiveCaptureThread::doProc,this);
     ret = pthread_create(&releTh,NULL,H264LiveCaptureThread::doRelease,this);
@@ -108,7 +95,7 @@ void* H264LiveCaptureThread::doRelease(void* arg)
             pbuf2 = nThread->drawWorkQ.itemAt(2);
             nThread->drawWorkQ.removeAt(2);
 
-            nThread->mService->releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
+            nThread->mService.releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
             close(pbuf2->share_fd);
             delete pbuf2;
         }
@@ -139,18 +126,14 @@ void H264LiveCaptureThread::Destroy()
         drawWorkQ.removeAt(0);
         drawlock.unlock();
 
-        mService->releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
+        mService.releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
         close(pbuf2->share_fd);
         delete pbuf2;
     }
 
 
-    if (mService != NULL)
-    {
-        mService->disconnect();
-        mService->removeClient();
-        mService = NULL;
-    }
+        mService.disconnect();
+        mService.removeClient();
 
     //	printf("mService destroied !\n");
     //
@@ -170,12 +153,6 @@ void H264LiveCaptureThread::exportData(void* obuf, int len, int* frameLen, int* 
 
     *truncatedLen = 0;
     *frameLen = 0;
-
-    if (mService == NULL)
-    {
-        printf("Service is not avaleable ! \n");
-        return;
-    }
 
     RemotePreviewBuffer *pbuf;
     //drawlock.lock();
@@ -222,7 +199,7 @@ void H264LiveCaptureThread::exportData(void* obuf, int len, int* frameLen, int* 
 
 cleanUp:
     munmap(vaddr, pbuf->size);
-    mService->releasePreviewFrame((unsigned char *)pbuf, sizeof(RemotePreviewBuffer));
+    mService.releasePreviewFrame((unsigned char *)pbuf, sizeof(RemotePreviewBuffer));
     close(pbuf->share_fd);
     delete pbuf;
 }

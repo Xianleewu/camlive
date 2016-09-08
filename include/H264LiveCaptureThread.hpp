@@ -82,17 +82,16 @@ public:
 private:
     int preWidth;
     int preHeight;
-    bool running = true;
+    bool running;
 
     Mutex drawlock;
     Vector<RemotePreviewBuffer *> drawWorkQ;
-    RemoteBufferWrapper *mService;
+    RemoteBufferWrapper mService;
 
     int size;
     RemotePreviewBuffer *pbuf;
     unsigned char *buf;
 
-    char mFrameBuf[H264_MAX_FRAME_SIZE];
     Input_Resource inPicture;
     Output_Resource outPicture;
     pthread_t procTh;
