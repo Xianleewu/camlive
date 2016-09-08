@@ -23,7 +23,7 @@ class H264LiveFramedSource : public FramedSource
 {
 public:
     static H264LiveFramedSource* createNew(UsageEnvironment& env,
-                                           const char* device, int width, int height, int fps);
+                                           unsigned char camid, int bitrate);
 
     static void getNextFrame(void* ptr);
     void getNextFrame1();

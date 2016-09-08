@@ -20,7 +20,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 using namespace std;
 
 H264LiveFramedSource* H264LiveFramedSource::createNew(UsageEnvironment& env, 
-                                                      const char* device, int width, int height, int fps)
+                                                      unsigned char camid, int bitrate)
 {
     H264LiveCaptureThread* thread = new H264LiveCaptureThread();
     if (NULL == thread)
@@ -28,7 +28,7 @@ H264LiveFramedSource* H264LiveFramedSource::createNew(UsageEnvironment& env,
         return NULL;
     }
 
-    if (!thread->Create( width, height, fps))
+    if (!thread->Create(camid, bitrate))
     {
         delete thread;
         return NULL;

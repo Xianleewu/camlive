@@ -16,14 +16,13 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #ifndef _H264_LIVE_CAPTURE_THREAD_HPP
 #define _H264_LIVE_CAPTURE_THREAD_HPP
 
-#define LOG_TAG "RemoteClient"
 #include <stdio.h>
-#include <ProcessState.h>
-#include <IPCThreadState.h>
-#include <utils/Vector.h>
 #include <sys/mman.h>
 #include <sys/time.h>
 
+#include <ProcessState.h>
+#include <IPCThreadState.h>
+#include <utils/Vector.h>
 #include <OMX_Video.h>
 #include <utils/Log.h>
 #include <binder/IServiceManager.h>
@@ -33,13 +32,16 @@ using namespace rockchip;
 
 #define H264_MAX_FRAME_SIZE (100 * 1024)
 
+//#define GRABBER_TIME
+#define EXPORT_TIME
+
 class H264LiveCaptureThread : public RemoteBufferWrapper::RemotePreviewCallback
 {
 public:
     H264LiveCaptureThread();
     ~H264LiveCaptureThread();
 
-    bool Create(int width, int height, int fps);
+    bool Create(unsigned char camid, int bitrate);
 
     void Destroy();
 
@@ -52,12 +54,14 @@ public:
     virtual void onPreviewData(int shared_fd, unsigned char *pbuf, int size)
     {
         //printf("got previewFrame \n");
+
+#ifdef GRABBER_TIME
         timeval sTime;
         timeval eTime;
         float time_use = 0;
 
         gettimeofday(&sTime,NULL);
-
+#endif
         RemotePreviewBuffer *nRePreBuf = new RemotePreviewBuffer;
         RemotePreviewBuffer *data = (RemotePreviewBuffer *)pbuf;
 
@@ -67,19 +71,19 @@ public:
         nRePreBuf->height = data->height;
         nRePreBuf->stride = data->stride;
         nRePreBuf->size = data->size;
-        //drawlock.lock();
+        drawlock.lock();
         drawWorkQ.push_back(nRePreBuf);
-        //drawlock.unlock();
-
+        drawlock.unlock();
+#ifdef GRABBER_TIME
         gettimeofday(&eTime,NULL);
-
         time_use=(eTime.tv_sec-sTime.tv_sec)*1000000+(eTime.tv_usec-sTime.tv_usec);
-
-        printf("grabber using time %d us \n",time_use);
+        printf("grabber using time %f us \n",time_use);
+#endif
 
     }
 
 private:
+    int preBitRate;
     int preWidth;
     int preHeight;
     bool running;

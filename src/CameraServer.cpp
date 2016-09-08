@@ -19,21 +19,16 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include <liveMedia.hh>
 #include <string.h>
 
-#define CAMERA_SERVER_VERSION_STRING        "0.1"
+#define CAMERA_SERVER_VERSION_STRING        "RockChip1.0"
 
 #define VIDEO_WIDTH     640
 #define VIDEO_HEIGTH    480
 #define FRAME_PER_SEC   25.0
+#define VIDEO_BITRATE   (4 * 1024 * 1024)
 
 int main(int argc, char** argv)
 {
-    char* videoDevice =(char*)"/dev/video1";
-	
-	if(argc > 1)
-	{
-		videoDevice = argv[1];
-	}
-	
+
     // Begin by setting up our usage environment:
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     UsageEnvironment* env = BasicUsageEnvironment::createNew(*scheduler);
@@ -52,12 +47,12 @@ int main(int argc, char** argv)
     RTSPServer* rtspServer;
     portNumBits rtspServerPortNum = 554;
     rtspServer = RTSPServer::createNew(*env, rtspServerPortNum, authDB);
-    if (rtspServer == NULL) 
+    if (rtspServer == NULL)
     {
         rtspServerPortNum = 8554;
         rtspServer = RTSPServer::createNew(*env, rtspServerPortNum, authDB);
     }
-    if (rtspServer == NULL) 
+    if (rtspServer == NULL)
     {
         *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
         exit(1);
@@ -65,17 +60,15 @@ int main(int argc, char** argv)
 
     *env << "Camera server version " << CAMERA_SERVER_VERSION_STRING << "\n";
 
-    ServerMediaSession *sms = ServerMediaSession::createNew(*env, 
-        "webcam", 0, "Camera server, streamed by Xianleewu");   
-    sms->addSubsession(H264LiveServerMediaSubsession::createNew(*env, 
-        videoDevice, VIDEO_WIDTH, VIDEO_HEIGTH, FRAME_PER_SEC)); 
-    rtspServer->addServerMediaSession(sms);  
+    ServerMediaSession *sms = ServerMediaSession::createNew(*env,"camfront", 0, "streamed by Rk");
+    sms->addSubsession(H264LiveServerMediaSubsession::createNew(*env, 0, VIDEO_BITRATE));
+    rtspServer->addServerMediaSession(sms);
 
-    char* url = rtspServer->rtspURL(sms);  
-    *env << "Using url \"" << url << "\"\n";  
-    delete[] url; 
+    char* url = rtspServer->rtspURL(sms);
+    *env << "Using url \"" << url << "\"\n";
+    delete[] url;
 
-    env->taskScheduler().doEventLoop(); // does not return
+    env->taskScheduler().doEventLoop();
 
-    return 0; // only to prevent compiler warning
+    return 0;
 }

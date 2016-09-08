@@ -20,18 +20,18 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 using namespace std;
 
 H264LiveServerMediaSubsession* H264LiveServerMediaSubsession::createNew(UsageEnvironment& env, 
-    const char* device, int width, int height, int fps)
+    unsigned char camid, int bitrate)
 {
-    return new H264LiveServerMediaSubsession(env, device, width, height, fps);
+    return new H264LiveServerMediaSubsession(env, camid, bitrate);
 }
 
 H264LiveServerMediaSubsession::H264LiveServerMediaSubsession(UsageEnvironment& env, 
-    const char* device, int width, int height, int fps)
+    unsigned char camid, int bitrate)
     : OnDemandServerMediaSubsession(env, True),
       mAuxSDPLine(NULL), mDoneFlag(0), mDummyRTPSink(NULL),
-      mWidth(width), mHeight(height), mFps(fps)
+      mCamId(camid), mBitRate(bitrate)
 {
-    mDevice = strDup(device);
+
 }
 
 H264LiveServerMediaSubsession::~H264LiveServerMediaSubsession()
@@ -39,11 +39,6 @@ H264LiveServerMediaSubsession::~H264LiveServerMediaSubsession()
     if (mAuxSDPLine)
     {
         delete[] mAuxSDPLine;
-    }
-
-    if (mDevice)
-    {
-        delete[] mDevice;
     }
 }
 
@@ -123,11 +118,11 @@ char const* H264LiveServerMediaSubsession::getAuxSDPLine(RTPSink* rtpSink, Frame
 
 FramedSource* H264LiveServerMediaSubsession::createNewStreamSource(unsigned clientSessionId, unsigned& estBitrate)
 {
-    estBitrate = 500;  
+    estBitrate = mBitRate / 1024;  //Kbps
 
     // Create the video source:
     H264LiveFramedSource* cameraSource = H264LiveFramedSource::createNew(envir(), 
-        mDevice, mWidth, mHeight, mFps);
+        mCamId, mBitRate);
     if (cameraSource == NULL) return NULL;
 
     return H264VideoStreamFramer::createNew(envir(), cameraSource);

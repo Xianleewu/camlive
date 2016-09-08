@@ -22,14 +22,14 @@ class H264LiveServerMediaSubsession : public OnDemandServerMediaSubsession
 {
 public:
     static H264LiveServerMediaSubsession* createNew(UsageEnvironment& env, 
-    const char* device, int width, int height, int fps);
+    unsigned char camid, int bitrate);
 
     void checkForAuxSDPLine1();
     void afterPlayingDummy1();
 
 protected:
     H264LiveServerMediaSubsession(UsageEnvironment& env, 
-        const char* device, int width, int height, int fps);
+        unsigned char camid, int bitrate);
     ~H264LiveServerMediaSubsession();
 
     void setDoneFlag() { mDoneFlag = ~0; }
@@ -47,10 +47,9 @@ private:
     char* mAuxSDPLine;
     char mDoneFlag; // used when setting up "fAuxSDPLine"
     RTPSink* mDummyRTPSink; // ditto
-    char *mDevice;
-    int mWidth;
-    int mHeight;
-    int mFps;
+
+    int mCamId;
+    int mBitRate;
 };
 
 #endif
