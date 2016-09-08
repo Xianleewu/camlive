@@ -22,6 +22,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include <IPCThreadState.h>
 #include <utils/Vector.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #include <OMX_Video.h>
 #include <utils/Log.h>
@@ -31,16 +32,12 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 using namespace rockchip;
 
 #define H264_MAX_FRAME_SIZE (100 * 1024)
-static Vector<RemotePreviewBuffer *> drawWorkQ;
-static bool running = true;
 
 class H264LiveCaptureThread : public RemoteBufferWrapper::RemotePreviewCallback
 {
 public:
     H264LiveCaptureThread();
     ~H264LiveCaptureThread();
-
-    RemoteBufferWrapper *mService;
 
     bool Create(int width, int height, int fps);
 
@@ -50,58 +47,59 @@ public:
 
     virtual void onCall(unsigned char *pbuf, int size)
     {
-        printf("onCall \n");
     }
 
     virtual void onPreviewData(int shared_fd, unsigned char *pbuf, int size)
     {
-        printf("got previewFrame \n");
+        //printf("got previewFrame \n");
+        timeval sTime;
+        timeval eTime;
+        float time_use = 0;
 
-        RemotePreviewBuffer *pbuf1 = new RemotePreviewBuffer;
+        gettimeofday(&sTime,NULL);
+
+        RemotePreviewBuffer *nRePreBuf = new RemotePreviewBuffer;
         RemotePreviewBuffer *data = (RemotePreviewBuffer *)pbuf;
 
-        pbuf1->share_fd = dup(shared_fd);
-        pbuf1->index = data->index;
-        pbuf1->width = data->width;
-        pbuf1->height = data->height;
-        pbuf1->stride = data->stride;
-        pbuf1->size = data->size;
-        drawlock.lock();
-        drawWorkQ.push_back(pbuf1);
-        drawQueue.broadcast();
-        drawlock.unlock();
+        nRePreBuf->share_fd = dup(shared_fd);
+        nRePreBuf->index = data->index;
+        nRePreBuf->width = data->width;
+        nRePreBuf->height = data->height;
+        nRePreBuf->stride = data->stride;
+        nRePreBuf->size = data->size;
+        //drawlock.lock();
+        drawWorkQ.push_back(nRePreBuf);
+        //drawlock.unlock();
 
-        drawlock.lock();
-        if(drawWorkQ.size() > 2)
-        {
+        gettimeofday(&eTime,NULL);
 
-            RemotePreviewBuffer *pbuf2;
-            pbuf2 = drawWorkQ.itemAt(2);
-            drawWorkQ.removeAt(2);
+        time_use=(eTime.tv_sec-sTime.tv_sec)*1000000+(eTime.tv_usec-sTime.tv_usec);
 
-            mService->releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
-            close(pbuf2->share_fd);
-            delete pbuf2;
-        }
-        drawlock.unlock();
+        printf("grabber using time %d us \n",time_use);
 
     }
 
 private:
     int preWidth;
     int preHeight;
+    bool running = true;
+
+    Mutex drawlock;
+    Vector<RemotePreviewBuffer *> drawWorkQ;
+    RemoteBufferWrapper *mService;
 
     int size;
     RemotePreviewBuffer *pbuf;
     unsigned char *buf;
 
-    Mutex drawlock;
-    Condition drawQueue;
-
     char mFrameBuf[H264_MAX_FRAME_SIZE];
-    Input_Resource picture;
-    Output_Resource info;
+    Input_Resource inPicture;
+    Output_Resource outPicture;
     pthread_t procTh;
+    pthread_t releTh;
+
+    static void* doProc(void* arg);
+    static void* doRelease(void* arg);
 
     RkDrivingEncoder *rkH264Encoder;
     int encoderInit();

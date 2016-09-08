@@ -17,25 +17,11 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include "H264LiveCaptureThread.hpp"
 
 
-void* doProc(void* arg)
-{
-    sp<ProcessState> proc(ProcessState::self());
-    proc->startThreadPool();
-
-    while(running)
-    {
-        sleep(1);
-    }
-
-    pthread_exit((void*)"mService thread exited !\n");
-}
-
-
 H264LiveCaptureThread::H264LiveCaptureThread()
 {
     rkH264Encoder = NULL;
     mService = NULL;
-    info.outputBuffer = NULL;
+    outPicture.outputBuffer = NULL;
 }
 
 bool H264LiveCaptureThread::Create(int width, int height, int fps)
@@ -72,16 +58,17 @@ bool H264LiveCaptureThread::Create(int width, int height, int fps)
         encoderInit();
     }
 
-    if(!info.outputBuffer)
+    if(!outPicture.outputBuffer)
     {
-        info.outputBuffer = malloc(preWidth * preHeight * 4 / 2);
+        outPicture.outputBuffer = malloc(preWidth * preHeight * 4 / 2);
     }
     mService->connect();
     mService->setPreviewCallback(this);
     mService->call(buf, size);
     mService->startPreview(0);
 
-    int ret = pthread_create(&procTh,NULL,doProc,NULL);
+    int ret = pthread_create(&procTh,NULL,H264LiveCaptureThread::doProc,this);
+    ret = pthread_create(&releTh,NULL,H264LiveCaptureThread::doRelease,this);
 
     if(ret != 0)
     {
@@ -93,6 +80,44 @@ bool H264LiveCaptureThread::Create(int width, int height, int fps)
 
     return true;
 }
+
+void* H264LiveCaptureThread::doProc(void* arg)
+{
+    H264LiveCaptureThread *nThread = (H264LiveCaptureThread*)arg;
+    sp<ProcessState> proc(ProcessState::self());
+    proc->startThreadPool();
+
+    while(nThread->running)
+    {
+        sleep(1);
+    }
+
+    pthread_exit((void*)"mService thread exited !\n");
+}
+
+void* H264LiveCaptureThread::doRelease(void* arg)
+{
+    H264LiveCaptureThread* nThread = (H264LiveCaptureThread*)arg;
+    while(nThread->running)
+    {
+        //drawlock.lock();
+        if(nThread->drawWorkQ.size() > 2)
+        {
+
+            RemotePreviewBuffer *pbuf2;
+            pbuf2 = nThread->drawWorkQ.itemAt(2);
+            nThread->drawWorkQ.removeAt(2);
+
+            nThread->mService->releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
+            close(pbuf2->share_fd);
+            delete pbuf2;
+        }
+        //drawlock.unlock();
+    }
+
+    pthread_exit((void*)"mService thread exited !\n");
+}
+
 
 H264LiveCaptureThread::~H264LiveCaptureThread()
 {
@@ -129,10 +154,10 @@ void H264LiveCaptureThread::Destroy()
 
     //	printf("mService destroied !\n");
     //
-    //	if(info.outputBuffer)
+    //	if(outPicture.outputBuffer)
     //	{
-    //		free(info.outputBuffer);
-    //		info.outputBuffer = NULL;
+    //		free(outPicture.outputBuffer);
+    //		outPicture.outputBuffer = NULL;
     //	}
 
     printf("H264 capture exit !\n");
@@ -153,17 +178,16 @@ void H264LiveCaptureThread::exportData(void* obuf, int len, int* frameLen, int* 
     }
 
     RemotePreviewBuffer *pbuf;
-    drawlock.lock();
+    //drawlock.lock();
     if(drawWorkQ.isEmpty())
     {
         printf("no remotebuffer ready to draw...\n");
-        //drawQueue.wait(drawlock);
-        drawlock.unlock();
+        //drawlock.unlock();
         return;
     }
     pbuf = drawWorkQ.itemAt(0);
     drawWorkQ.removeAt(0);
-    drawlock.unlock();
+    //drawlock.unlock();
 
     unsigned char *vaddr = (unsigned char *)mmap(NULL, pbuf->size, PROT_READ | PROT_WRITE, MAP_SHARED, pbuf->share_fd, 0);
 
@@ -174,11 +198,11 @@ void H264LiveCaptureThread::exportData(void* obuf, int len, int* frameLen, int* 
         preHeight = pbuf->height;
 
         encoderInit();
-        if(info.outputBuffer)
+        if(outPicture.outputBuffer)
         {
-            free(info.outputBuffer);
+            free(outPicture.outputBuffer);
         }
-        info.outputBuffer = malloc(preWidth * preHeight * 3 / 2);
+        outPicture.outputBuffer = malloc(preWidth * preHeight * 3 / 2);
     }
 
     if(encodeProc(vaddr) < 0)
@@ -187,14 +211,14 @@ void H264LiveCaptureThread::exportData(void* obuf, int len, int* frameLen, int* 
         return;
     }
 
-    if(info.mSize > len)
+    if(outPicture.mSize > len)
     {
-        unexportLen =  info.mSize - len;
+        unexportLen =  outPicture.mSize - len;
     }
 
-    memcpy(obuf, info.outputBuffer, info.mSize - unexportLen);
+    memcpy(obuf, outPicture.outputBuffer, outPicture.mSize - unexportLen);
     *truncatedLen = unexportLen;
-    *frameLen = info.mSize - unexportLen;
+    *frameLen = outPicture.mSize - unexportLen;
 
 cleanUp:
     munmap(vaddr, pbuf->size);
@@ -209,7 +233,7 @@ int H264LiveCaptureThread::encoderInit()
     InitParams_t *pa = &param;
     pa->mVideoWidth = preWidth; // FIXME:only for debug
     pa->mVideoHeight = preHeight; //FIXME:
-    pa->mVideoFrameRate = 25;
+    pa->mVideoFrameRate = 15;
     pa->mVideoBitRate = 2*1024*1024;
     pa->mVideoColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
     rkH264Encoder = new RkDrivingEncoder(pa);
@@ -238,18 +262,18 @@ int H264LiveCaptureThread::encodeProc(unsigned char *vddr)
         }
     }
 
-    //Input_Resource picture;
-    memset(&picture, 0, sizeof(Input_Resource));
-    picture.mSize = preWidth * preHeight * 3 /2;
-    picture.inputBuffer = vddr;
-    picture.mTimeUs = systemTime() / 1000;
+    //Input_Resource inPicture;
+    memset(&inPicture, 0, sizeof(Input_Resource));
+    inPicture.mSize = preWidth * preHeight * 3 /2;
+    inPicture.inputBuffer = vddr;
+    inPicture.mTimeUs = systemTime() / 1000;
 
-    //Output_Resource info;
-    //memset(&info, 0, sizeof(Output_Resource));
-    memset(info.outputBuffer, 0, preWidth * preHeight * 3 / 2);
+    //Output_Resource outPicture;
+    //memset(&outPicture, 0, sizeof(Output_Resource));
+    memset(outPicture.outputBuffer, 0, preWidth * preHeight * 3 / 2);
 
     // Encode!
-    int ret = rkH264Encoder->EncodeFrame(&picture, &info);
+    int ret = rkH264Encoder->EncodeFrame(&inPicture, &outPicture);
 
     return ret;
 }
