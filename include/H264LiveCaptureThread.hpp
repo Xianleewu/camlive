@@ -33,7 +33,7 @@ using namespace rockchip;
 #define H264_MAX_FRAME_SIZE (100 * 1024)
 
 //#define GRABBER_TIME
-#define EXPORT_TIME
+//#define EXPORT_TIME
 
 typedef struct _preViewBuffer
 {
@@ -88,6 +88,18 @@ public:
         else
         {
             drawWorkQ.push_back(nRePreBuf);
+
+            if(drawWorkQ.size() > 2)
+            {
+                RemotePreviewBuffer *pbuf2;
+                pbuf2 = drawWorkQ.itemAt(1);
+                drawWorkQ.removeAt(1);
+
+                mService.releasePreviewFrame((unsigned char *)pbuf2, sizeof(RemotePreviewBuffer));
+                close(pbuf2->share_fd);
+                delete pbuf2;
+            }
+
         }
 
 #ifdef GRABBER_TIME
@@ -95,7 +107,6 @@ public:
         time_use=(eTime.tv_sec-sTime.tv_sec)*1000000+(eTime.tv_usec-sTime.tv_usec);
         printf("grabber using time %f us \n",time_use);
 #endif
-
     }
 
 private:

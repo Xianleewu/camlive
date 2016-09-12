@@ -58,14 +58,13 @@ bool H264LiveCaptureThread::Create(unsigned char camid, int bitrate)
     mService.startPreview(0);
 
     int ret = pthread_create(&procTh,NULL,H264LiveCaptureThread::doProc,this);
-    ret = pthread_create(&releTh,NULL,H264LiveCaptureThread::doRelease,this);
+    //ret = pthread_create(&releTh,NULL,H264LiveCaptureThread::doRelease,this);
 
     if(ret != 0)
     {
         printf("creating new thread error !\n");
         return -1;
     }
-
     printf("Service started !\n");
 
     return true;

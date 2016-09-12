@@ -56,7 +56,7 @@ H264LiveFramedSource::~H264LiveFramedSource()
 
 void H264LiveFramedSource::doGetNextFrame()
 { 
-    mToken = envir().taskScheduler().scheduleDelayedTask(40000,
+    mToken = envir().taskScheduler().scheduleDelayedTask(0,
                                                          getNextFrame, this);
 }
 
