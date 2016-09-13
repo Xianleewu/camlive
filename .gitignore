@@ -28,5 +28,10 @@
 *.out
 *.app
 
+<<<<<<< HEAD
 #Temp files
 *.swp
+=======
+#Temp Files
+*.SWP
+>>>>>>> origin
